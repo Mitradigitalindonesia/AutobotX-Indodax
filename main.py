@@ -1,20 +1,17 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import os
 
-from indodax_api import place_buy_order, get_balance, place_grid_order
+from indodax_api import place_buy_order, get_balance, place_grid_order, get_open_orders
 
 app = FastAPI()
 
-# Mount static and template directories
+# Static and template mounting
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-
-# In-memory store for active grid orders (simple simulation)
-active_orders = []
 
 # === Request Models ===
 class BuyRequest(BaseModel):
@@ -47,17 +44,22 @@ class GridTradingRequest(BaseModel):
     high_price: float
     grid_count: int
     balance: float
+    api_key: str
+    api_secret: str
 
-# === UI Routes ===
+class PositionsRequest(BaseModel):
+    api_key: str
+    api_secret: str
 
+# === UI ROUTES ===
 @app.get("/", response_class=FileResponse)
 def serve_index():
     return FileResponse(os.path.join("static", "index.html"))
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def get_dashboard(request: Request):
-    # Dummy portfolio (replace with real user balance or session data if implemented)
-    portfolio = {"idr": 5000000, "btc": 0.01}
+    # Ini bisa diganti untuk fetch realtime di sisi client (JS)
+    portfolio = {"idr": 0, "btc": 0}
     pairs = ["btc_idr", "eth_idr", "bnb_idr"]
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
@@ -65,8 +67,7 @@ def get_dashboard(request: Request):
         "pairs": pairs
     })
 
-# === API Endpoints ===
-
+# === API ENDPOINTS ===
 @app.post("/validate")
 def validate_key(request: ValidateRequest):
     try:
@@ -126,8 +127,6 @@ def start_bot(req: StartBotRequest):
     except Exception as e:
         return {"message": "Error starting grid bot", "error": str(e)}
 
-# === Grid Trading via Dashboard ===
-
 @app.post("/start_grid_trading")
 async def start_grid_trading(request: Request):
     try:
@@ -140,17 +139,18 @@ async def start_grid_trading(request: Request):
         api_key = data["api_key"]
         api_secret = data["api_secret"]
 
+        # Hitung step harga dan alokasi per order
         price_step = (high_price - low_price) / grid_count
         amount_per_order = balance / grid_count
 
-        # Cek saldo terlebih dahulu
+        # Validasi saldo
         user_balance = get_balance(api_key=api_key, api_secret=api_secret)
         idr_balance = float(user_balance['return']['balance']['idr'])
 
         if idr_balance < balance:
             return JSONResponse(status_code=400, content={"success": False, "message": "Saldo IDR tidak mencukupi"})
 
-        # Kirim order nyata per grid
+        # Kirim order secara nyata
         orders = []
         for i in range(grid_count):
             price = low_price + i * price_step
@@ -167,6 +167,14 @@ async def start_grid_trading(request: Request):
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
-@app.get("/positions")
-def get_positions():
-    return active_orders
+
+@app.post("/positions")
+def get_positions(request: PositionsRequest):
+    try:
+        orders = get_open_orders(
+            api_key=request.api_key,
+            api_secret=request.api_secret
+        )
+        return {"success": True, "orders": orders}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
