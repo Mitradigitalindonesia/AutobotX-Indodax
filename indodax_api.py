@@ -58,3 +58,16 @@ def place_grid_order(pair, price, amount, api_key, api_secret):
     headers, data = _generate_signature(api_key, api_secret, data)
     response = requests.post(url, headers=headers, data=data)
     return response.json()
+
+def get_open_orders(api_key, api_secret):
+    url = "https://indodax.com/tapi"
+    nonce = int(time.time() * 1000)
+
+    data = {
+        "method": "openOrders",
+        "nonce": nonce
+    }
+
+    headers, data = _generate_signature(api_key, api_secret, data)
+    response = requests.post(url, headers=headers, data=data)
+    return response.json()
