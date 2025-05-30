@@ -3,18 +3,14 @@ import hmac
 import hashlib
 import requests
 
-def place_buy_order(pair: str, amount_idr: float, api_key: str, api_secret: str):
+def get_balance(api_key, api_secret):
     url = "https://indodax.com/tapi"
-    method = "trade"
+    method = "getInfo"
     nonce = int(time.time() * 1000)
 
     data = {
         "method": method,
-        "nonce": nonce,
-        "pair": pair,
-        "type": "buy",
-        "price": 0,
-        "idr": amount_idr
+        "nonce": nonce
     }
 
     post_data = "&".join([f"{k}={v}" for k, v in data.items()])
