@@ -14,7 +14,15 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/", response_class=FileResponse)
 def serve_index():
     return FileResponse(os.path.join("static", "index.html"))
-
+@app.post("/validate")
+def validate_key(request: BuyRequest):
+    try:
+        balance = get_balance(api_key=request.api_key, api_secret=request.api_secret)
+        if 'return' in balance:
+            return {"success": True}
+    except:
+        pass
+    return {"success": False}
 # Request body model
 class BuyRequest(BaseModel):
     user_id: str
