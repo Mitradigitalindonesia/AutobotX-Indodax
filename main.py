@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Form
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import os
 
@@ -8,8 +9,12 @@ from indodax_api import place_buy_order, get_balance, place_grid_order
 
 app = FastAPI()
 
-# Mount static folder (untuk file HTML dan frontend)
+# Mount static and template directories
 app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+# In-memory store for active grid orders (simple simulation)
+active_orders = []
 
 # === Request Models ===
 class BuyRequest(BaseModel):
@@ -36,11 +41,29 @@ class StartBotRequest(BaseModel):
     grid_size: int
     budget: float
 
-# === UI Routing ===
+class GridTradingRequest(BaseModel):
+    pair: str
+    low_price: float
+    high_price: float
+    grid_count: int
+    balance: float
+
+# === UI Routes ===
 
 @app.get("/", response_class=FileResponse)
 def serve_index():
     return FileResponse(os.path.join("static", "index.html"))
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def get_dashboard(request: Request):
+    # Dummy portfolio (replace with real user balance or session data if implemented)
+    portfolio = {"idr": 5000000, "btc": 0.01}
+    pairs = ["btc_idr", "eth_idr", "bnb_idr"]
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "portfolio": portfolio,
+        "pairs": pairs
+    })
 
 # === API Endpoints ===
 
@@ -76,7 +99,6 @@ def trade_buy(request: BuyRequest):
 def get_portfolio(request: PortfolioRequest):
     try:
         balance = get_balance(api_key=request.api_key, api_secret=request.api_secret)
-        print("🔍 get_balance() result:", balance)  # Debug log
         if 'return' in balance and 'balance' in balance['return']:
             return {"success": True, "return": balance['return']}
         return {"success": False, "raw": balance}
@@ -103,3 +125,38 @@ def start_bot(req: StartBotRequest):
         return {"message": "Grid bot started", "orders": actions}
     except Exception as e:
         return {"message": "Error starting grid bot", "error": str(e)}
+
+# === Grid Trading via Dashboard ===
+
+@app.post("/start_grid_trading")
+async def start_grid_trading(request: Request):
+    try:
+        data = await request.json()
+        pair = data["pair"]
+        low_price = float(data["low_price"])
+        high_price = float(data["high_price"])
+        grid_count = int(data["grid_count"])
+        balance = float(data["balance"])
+
+        step = (high_price - low_price) / grid_count
+        amount_per_order = balance / grid_count
+
+        # Simulasikan order, simpan di memori
+        for i in range(grid_count):
+            price = low_price + i * step
+            order = {
+                "pair": pair,
+                "order_type": "buy" if i % 2 == 0 else "sell",
+                "price": round(price, 2),
+                "amount": round(amount_per_order / price, 6),
+                "status": "open"
+            }
+            active_orders.append(order)
+
+        return {"success": True, "message": "Grid strategy initialized"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/positions")
+def get_positions():
+    return active_orders
