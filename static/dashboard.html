@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Indodax Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0e1a2b;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .dashboard-container {
+      background: #1f2d3d;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      width: 350px;
+      text-align: center;
+    }
+
+    .dashboard-container h2 {
+      margin-bottom: 20px;
+    }
+
+    .portfolio {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    button {
+      padding: 10px;
+      margin: 5px 0;
+      background: #00b894;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    button:hover {
+      background: #00a383;
+    }
+
+    .danger {
+      background: #e74c3c;
+    }
+
+    .danger:hover {
+      background: #c0392b;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <h2>Indodax Dashboard</h2>
+    <div id="portfolio" class="portfolio">
+      <p>Loading portfolio...</p>
+    </div>
+
+    <button id="startBotBtn">Start Grid Trading Bot</button>
+    <button id="logoutBtn" class="danger">Logout</button>
+  </div>
+
+  <script>
+    async function fetchPortfolio() {
+      const apiKey = localStorage.getItem("api_key");
+      const apiSecret = localStorage.getItem("api_secret");
+
+      if (!apiKey || !apiSecret) {
+        window.location.href = "/";
+        return;
+      }
+
+      const response = await fetch("/portfolio", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ api_key: apiKey, api_secret: apiSecret })
+      });
+
+      const data = await response.json();
+      const portfolioElement = document.getElementById("portfolio");
+
+      if (data.success) {
+        const balance = data.return.balance;
+        portfolioElement.innerHTML = `
+          <h3>Portfolio Overview</h3>
+          <p><strong>IDR:</strong> ${balance.idr}</p>
+          <p><strong>BTC:</strong> ${balance.btc}</p>
+          <p><strong>ETH:</strong> ${balance.eth}</p>
+        `;
+      } else {
+        portfolioElement.innerHTML = "<p>Gagal memuat data portofolio.</p>";
+      }
+    }
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("api_key");
+      localStorage.removeItem("api_secret");
+      window.location.href = "/";
+    });
+
+    document.getElementById("startBotBtn").addEventListener("click", async () => {
+      const apiKey = localStorage.getItem("api_key");
+      const apiSecret = localStorage.getItem("api_secret");
+
+      const res = await fetch("/start-bot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: apiKey,
+          api_secret: apiSecret,
+          pair: "btc_idr",
+          grid_size: 3,
+          min_price: 900000,
+          max_price: 1200000,
+          budget: 100000
+        })
+      });
+
+      const result = await res.json();
+      alert(result.message || "Bot started.");
+    });
+
+    fetchPortfolio();
+  </script>
+</body>
+</html>
