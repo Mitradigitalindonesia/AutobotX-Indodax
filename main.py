@@ -8,10 +8,10 @@ from indodax_api import place_buy_order, get_balance, place_grid_order
 
 app = FastAPI()
 
-# Mount static folder
+# Mount static folder (untuk file HTML dan frontend)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Models
+# === Request Models ===
 class BuyRequest(BaseModel):
     user_id: str
     pair: str
@@ -36,47 +36,53 @@ class StartBotRequest(BaseModel):
     grid_size: int
     budget: float
 
-# Serve UI
+# === UI Routing ===
+
 @app.get("/", response_class=FileResponse)
 def serve_index():
     return FileResponse(os.path.join("static", "index.html"))
 
-# Validate API key
+# === API Endpoints ===
+
 @app.post("/validate")
 def validate_key(request: ValidateRequest):
     try:
         balance = get_balance(api_key=request.api_key, api_secret=request.api_secret)
         if 'return' in balance:
             return {"success": True}
-    except:
-        pass
+    except Exception as e:
+        print("❌ Error during validation:", str(e))
     return {"success": False}
 
-# Buy order
 @app.post("/trade/buy")
 def trade_buy(request: BuyRequest):
-    result = place_buy_order(
-        pair=request.pair,
-        amount_idr=request.amount,
-        api_key=request.api_key,
-        api_secret=request.api_secret
-    )
-    return {
-        "user_id": request.user_id,
-        "pair": request.pair,
-        "amount": request.amount,
-        "result": result
-    }
+    try:
+        result = place_buy_order(
+            pair=request.pair,
+            amount_idr=request.amount,
+            api_key=request.api_key,
+            api_secret=request.api_secret
+        )
+        return {
+            "user_id": request.user_id,
+            "pair": request.pair,
+            "amount": request.amount,
+            "result": result
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
-# Get portfolio
 @app.post("/portfolio")
 def get_portfolio(request: PortfolioRequest):
-    balance = get_balance(api_key=request.api_key, api_secret=request.api_secret)
-    if 'return' in balance:
-        return {"success": True, "return": balance}
-    return {"success": False, "message": "Failed to fetch portfolio"}
+    try:
+        balance = get_balance(api_key=request.api_key, api_secret=request.api_secret)
+        print("🔍 get_balance() result:", balance)  # Debug log
+        if 'return' in balance and 'balance' in balance['return']:
+            return {"success": True, "return": balance['return']}
+        return {"success": False, "raw": balance}
+    except Exception as e:
+        return {"success": False, "message": "Failed to fetch portfolio", "error": str(e)}
 
-# Start grid bot (demo version)
 @app.post("/start-bot")
 def start_bot(req: StartBotRequest):
     try:
@@ -96,4 +102,4 @@ def start_bot(req: StartBotRequest):
 
         return {"message": "Grid bot started", "orders": actions}
     except Exception as e:
-        return {"message": f"Error: {str(e)}"}
+        return {"message": "Error starting grid bot", "error": str(e)}
