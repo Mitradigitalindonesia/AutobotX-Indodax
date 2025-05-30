@@ -137,26 +137,36 @@ async def start_grid_trading(request: Request):
         high_price = float(data["high_price"])
         grid_count = int(data["grid_count"])
         balance = float(data["balance"])
+        api_key = data["api_key"]
+        api_secret = data["api_secret"]
 
-        step = (high_price - low_price) / grid_count
+        price_step = (high_price - low_price) / grid_count
         amount_per_order = balance / grid_count
 
-        # Simulasikan order, simpan di memori
+        # Cek saldo terlebih dahulu
+        user_balance = get_balance(api_key=api_key, api_secret=api_secret)
+        idr_balance = float(user_balance['return']['balance']['idr'])
+
+        if idr_balance < balance:
+            return JSONResponse(status_code=400, content={"success": False, "message": "Saldo IDR tidak mencukupi"})
+
+        # Kirim order nyata per grid
+        orders = []
         for i in range(grid_count):
-            price = low_price + i * step
-            order = {
-                "pair": pair,
-                "order_type": "buy" if i % 2 == 0 else "sell",
-                "price": round(price, 2),
-                "amount": round(amount_per_order / price, 6),
-                "status": "open"
-            }
-            active_orders.append(order)
+            price = low_price + i * price_step
+            result = place_grid_order(
+                pair=pair,
+                price=round(price, 2),
+                amount=amount_per_order,
+                api_key=api_key,
+                api_secret=api_secret
+            )
+            orders.append(result)
 
-        return {"success": True, "message": "Grid strategy initialized"}
+        return {"success": True, "message": "Grid orders placed", "orders": orders}
+
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 @app.get("/positions")
 def get_positions():
     return active_orders
