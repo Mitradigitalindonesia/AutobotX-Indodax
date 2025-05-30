@@ -3,6 +3,7 @@
 <head>
     <title>Dashboard</title>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
         body { font-family: Arial; padding: 20px; }
         table { border-collapse: collapse; width: 100%; margin-top: 10px; }
@@ -49,15 +50,22 @@
         <thead>
             <tr><th>Pair</th><th>Type</th><th>Price</th><th>Amount</th><th>Status</th></tr>
         </thead>
-        <tbody id="positionsBody"></tbody>
+        <tbody id="positionsBody">
+            <tr><td colspan="5">Loading...</td></tr>
+        </tbody>
     </table>
 
     <script>
         const api_key = localStorage.getItem("api_key");
         const api_secret = localStorage.getItem("api_secret");
 
-        function openGridModal() { document.getElementById("gridModal").style.display = "block"; }
-        function closeGridModal() { document.getElementById("gridModal").style.display = "none"; }
+        function openGridModal() {
+            document.getElementById("gridModal").style.display = "block";
+        }
+
+        function closeGridModal() {
+            document.getElementById("gridModal").style.display = "none";
+        }
 
         document.getElementById("gridForm").onsubmit = async (e) => {
             e.preventDefault();
@@ -66,13 +74,25 @@
             payload.api_key = api_key;
             payload.api_secret = api_secret;
 
-            const res = await fetch("/start_grid_trading", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-            const json = await res.json();
-            alert(json.message || json.error);
+            const submitBtn = e.target.querySelector("button[type='submit']");
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Mengirim...";
+
+            try {
+                const res = await fetch("/start_grid_trading", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+
+                const json = await res.json();
+                alert(json.message || json.error || "Grid order selesai.");
+            } catch (err) {
+                alert("Terjadi kesalahan: " + err);
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Mulai";
             closeGridModal();
             loadPositions();
         };
@@ -83,11 +103,22 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ api_key, api_secret }),
             });
-            const orders = await res.json();
+
+            const data = await res.json();
             const tbody = document.getElementById("positionsBody");
             tbody.innerHTML = "";
 
-            orders.forEach(o => {
+            if (!data.success || !Array.isArray(data.orders)) {
+                tbody.innerHTML = "<tr><td colspan='5'>Gagal mengambil data.</td></tr>";
+                return;
+            }
+
+            if (data.orders.length === 0) {
+                tbody.innerHTML = "<tr><td colspan='5'>Tidak ada posisi terbuka.</td></tr>";
+                return;
+            }
+
+            data.orders.forEach(o => {
                 const tr = document.createElement("tr");
                 tr.innerHTML = `
                     <td>${o.pair}</td>
