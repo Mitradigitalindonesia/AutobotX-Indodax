@@ -1,36 +1,44 @@
-import os
-import time
-import hmac
-import hashlib
-import requests
-from dotenv import load_dotenv
+from fastapi import FastAPI, Depends
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from database import SessionLocal
+from indodax_api import place_buy_order
+from models import TradeHistory
+from datetime import datetime
 
-load_dotenv()
+app = FastAPI()
 
-API_KEY = os.getenv("INDODAX_API_KEY")
-API_SECRET = os.getenv("INDODAX_API_SECRET")
+class BuyRequest(BaseModel):
+    user_id: str
+    pair: str
+    amount: float
 
-def place_buy_order(pair: str, amount_idr: float):
-    url = "https://indodax.com/tapi"
-    method = "trade"
-    nonce = int(time.time() * 1000)
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-    data = {
-        "method": method,
-        "nonce": nonce,
-        "pair": pair,
-        "type": "buy",
-        "price": 0,           # Market order (set 0)
-        "idr": amount_idr     # Amount in IDR
-    }
+@app.post("/trade/buy")
+def trade_buy(request: BuyRequest, db: Session = Depends(get_db)):
+    # Simpan transaksi ke database
+    new_trade = TradeHistory(
+        user_id=request.user_id,
+        pair=request.pair,
+        amount=request.amount,
+        status="pending",
+        timestamp=datetime.utcnow()
+    )
+    db.add(new_trade)
+    db.commit()
+    db.refresh(new_trade)
 
-    post_data = "&".join([f"{k}={v}" for k, v in data.items()])
-    signature = hmac.new(API_SECRET.encode(), post_data.encode(), hashlib.sha512).hexdigest()
+    # Kirim order ke Indodax
+    result = place_buy_order(request.pair, request.amount)
 
-    headers = {
-        "Key": API_KEY,
-        "Sign": signature
-    }
+    # Update status transaksi
+    new_trade.status = "success" if result.get("success") == 1 else "failed"
+    db.commit()
 
-    response = requests.post(url, headers=headers, data=data)
-    return response.json()
+    return {"message": "Buy order processed", "order_id": new_trade.id, "indodax_result": result}
