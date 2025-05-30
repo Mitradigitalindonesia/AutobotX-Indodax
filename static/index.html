@@ -87,7 +87,7 @@
       if (result.success) {
         localStorage.setItem("api_key", api_key);
         localStorage.setItem("api_secret", api_secret);
-        window.location.href = "/static/dashboard.html";
+        window.location.href = "/dashboard";
       } else {
         document.getElementById("error").textContent = "Invalid API credentials";
       }
