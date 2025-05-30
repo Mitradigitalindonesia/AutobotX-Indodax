@@ -2,198 +2,105 @@
 <html>
 <head>
     <title>Dashboard</title>
+    <meta charset="UTF-8" />
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            background-color: #f4f4f4;
-        }
-        h2, h3 {
-            margin-top: 20px;
-        }
-        table {
-            width: 100%;
-            margin-top: 10px;
-            border-collapse: collapse;
-            background: white;
-        }
-        th, td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: left;
-        }
-        button {
-            margin-top: 10px;
-            padding: 10px;
-            cursor: pointer;
-        }
-        #gridModal {
-            display: none;
-            position: fixed;
-            top: 10%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: white;
-            padding: 20px;
-            border: 2px solid #000;
-            box-shadow: 0px 0px 10px rgba(0,0,0,0.5);
-            z-index: 999;
-        }
-        #gridModal form input,
-        #gridModal form select {
-            width: 100%;
-            margin: 5px 0;
-            padding: 8px;
-        }
+        body { font-family: Arial; padding: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; }
+        #gridModal { display: none; position: fixed; background: #fff; padding: 20px; border: 2px solid #000; top: 10%; left: 50%; transform: translateX(-50%); z-index: 1000; }
     </style>
 </head>
 <body>
     <h2>Portfolio</h2>
-    <table id="portfolioTable">
+    <table>
         <thead>
             <tr><th>Asset</th><th>Balance</th></tr>
         </thead>
-        <tbody id="portfolioBody"></tbody>
+        <tbody>
+            {% for asset, balance in portfolio.items() %}
+            <tr><td>{{ asset }}</td><td>{{ balance }}</td></tr>
+            {% endfor %}
+        </tbody>
     </table>
 
     <h3>Strategi Grid Trading</h3>
-    <button id="openGridModal">Start Grid Trading</button>
+    <button onclick="openGridModal()">Start Grid Trading</button>
 
     <div id="gridModal">
         <form id="gridForm">
-            <h3>Grid Trading Setup</h3>
-
-            <label for="pair">Pair:</label>
-            <select name="pair" id="pair" required>
-                <option value="btc_idr">BTC/IDR</option>
-                <option value="eth_idr">ETH/IDR</option>
-                <option value="bnb_idr">BNB/IDR</option>
-            </select>
-
-            <label for="low_price">Harga Terendah:</label>
-            <input type="number" name="low_price" step="any" required>
-
-            <label for="high_price">Harga Tertinggi:</label>
-            <input type="number" name="high_price" step="any" required>
-
-            <label for="grid_count">Jumlah Grid:</label>
-            <input type="number" name="grid_count" min="1" required>
-
-            <label for="balance">Alokasi Saldo (IDR):</label>
-            <input type="number" name="balance" step="any" required>
-
-            <button type="submit">Mulai Strategi</button>
-            <button type="button" onclick="closeModal()">Batal</button>
+            <label>Pair:
+                <select name="pair" required>
+                    {% for pair in pairs %}
+                        <option value="{{ pair }}">{{ pair|upper }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Harga Terendah: <input type="number" step="any" name="low_price" required></label>
+            <label>Harga Tertinggi: <input type="number" step="any" name="high_price" required></label>
+            <label>Jumlah Grid: <input type="number" name="grid_count" required></label>
+            <label>Saldo IDR: <input type="number" step="any" name="balance" required></label>
+            <button type="submit">Mulai</button>
+            <button type="button" onclick="closeGridModal()">Batal</button>
         </form>
     </div>
 
-    <h3>Open Positions</h3>
-    <table id="positionsTable">
+    <h3>Open Positions (Live dari Indodax)</h3>
+    <table>
         <thead>
-            <tr>
-                <th>Pair</th>
-                <th>Order Type</th>
-                <th>Price</th>
-                <th>Amount</th>
-                <th>Status</th>
-            </tr>
+            <tr><th>Pair</th><th>Type</th><th>Price</th><th>Amount</th><th>Status</th></tr>
         </thead>
         <tbody id="positionsBody"></tbody>
     </table>
 
     <script>
-        const modal = document.getElementById("gridModal");
-        const closeModal = () => modal.style.display = "none";
-        document.getElementById("openGridModal").onclick = () => modal.style.display = "block";
+        const api_key = localStorage.getItem("api_key");
+        const api_secret = localStorage.getItem("api_secret");
+
+        function openGridModal() { document.getElementById("gridModal").style.display = "block"; }
+        function closeGridModal() { document.getElementById("gridModal").style.display = "none"; }
 
         document.getElementById("gridForm").onsubmit = async (e) => {
             e.preventDefault();
             const form = new FormData(e.target);
             const payload = Object.fromEntries(form.entries());
-
-            const api_key = localStorage.getItem("api_key");
-            const api_secret = localStorage.getItem("api_secret");
-
-            if (!api_key || !api_secret) {
-                alert("API Key belum tersedia. Silakan login ulang.");
-                return;
-            }
-
             payload.api_key = api_key;
             payload.api_secret = api_secret;
 
-            const response = await fetch('/start_grid_trading', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            const res = await fetch("/start_grid_trading", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
-
-            const result = await response.json();
-            if (response.ok && result.success) {
-                alert('Strategi berhasil dimulai!');
-                closeModal();
-                loadPositions();
-            } else {
-                alert('Gagal: ' + (result.message || result.error));
-            }
-        };
-
-        async function loadPortfolio() {
-            const api_key = localStorage.getItem("api_key");
-            const api_secret = localStorage.getItem("api_secret");
-
-            const res = await fetch('/portfolio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ api_key, api_secret })
-            });
-            const result = await res.json();
-
-            const tbody = document.getElementById("portfolioBody");
-            tbody.innerHTML = '';
-            if (result.success) {
-                const data = result.return.balance;
-                for (const [asset, balance] of Object.entries(data)) {
-                    const row = document.createElement("tr");
-                    row.innerHTML = `<td>${asset.toUpperCase()}</td><td>${balance}</td>`;
-                    tbody.appendChild(row);
-                }
-            }
-        }
-
-        async function loadPositions() {
-            const api_key = localStorage.getItem("api_key");
-            const api_secret = localStorage.getItem("api_secret");
-
-            const res = await fetch('/positions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ api_key, api_secret })
-            });
-
-            const data = await res.json();
-            const tbody = document.getElementById("positionsBody");
-            tbody.innerHTML = '';
-
-            if (Array.isArray(data)) {
-                data.forEach(pos => {
-                    const row = document.createElement("tr");
-                    row.innerHTML = `
-                        <td>${pos.pair}</td>
-                        <td>${pos.type}</td>
-                        <td>${pos.price}</td>
-                        <td>${pos.amount}</td>
-                        <td>${pos.status}</td>
-                    `;
-                    tbody.appendChild(row);
-                });
-            }
-        }
-
-        window.onload = () => {
-            loadPortfolio();
+            const json = await res.json();
+            alert(json.message || json.error);
+            closeGridModal();
             loadPositions();
         };
+
+        async function loadPositions() {
+            const res = await fetch("/positions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ api_key, api_secret }),
+            });
+            const orders = await res.json();
+            const tbody = document.getElementById("positionsBody");
+            tbody.innerHTML = "";
+
+            orders.forEach(o => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${o.pair}</td>
+                    <td>${o.type}</td>
+                    <td>${o.price}</td>
+                    <td>${o.amount}</td>
+                    <td>${o.status}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.onload = loadPositions;
     </script>
 </body>
 </html>
