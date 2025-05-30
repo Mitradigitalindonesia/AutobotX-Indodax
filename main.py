@@ -1,20 +1,29 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from indodax_api import place_buy_order
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
 
 app = FastAPI()
 
+# Mount folder static
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Serve index.html UI
+@app.get("/", response_class=FileResponse)
+def serve_index():
+    return FileResponse(os.path.join("static", "index.html"))
+
+# Request body model
 class BuyRequest(BaseModel):
     user_id: str
     pair: str
-    amount: float  # Amount in IDR
-    api_key: str   # User's Indodax API Key
-    api_secret: str  # User's Indodax Secret Key
+    amount: float
+    api_key: str
+    api_secret: str
 
-@app.get("/")
-def root():
-    return {"message": "Indodax Trading Bot API - Ready"}
-
+# Endpoint trade
 @app.post("/trade/buy")
 def trade_buy(request: BuyRequest):
     result = place_buy_order(
