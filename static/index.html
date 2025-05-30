@@ -3,35 +3,94 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Indodax Trading Bot</title>
+  <title>Indodax Login</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0e1a2b;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .login-box {
+      background: #1f2d3d;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      width: 300px;
+    }
+
+    .login-box h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .login-box input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: none;
+      border-radius: 4px;
+    }
+
+    .login-box button {
+      width: 100%;
+      padding: 10px;
+      background: #00b894;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .login-box button:hover {
+      background: #00a383;
+    }
+
+    .error-message {
+      color: #ff7675;
+      margin-top: 10px;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-  <h2>Indodax Trading Bot</h2>
-  <form id="tradeForm">
-    <input type="text" name="user_id" placeholder="User ID" required><br>
-    <input type="text" name="api_key" placeholder="API Key" required><br>
-    <input type="text" name="api_secret" placeholder="API Secret" required><br>
-    <input type="text" name="pair" placeholder="Pair (e.g. btc_idr)" required><br>
-    <input type="number" name="amount" placeholder="Amount in IDR" required><br>
-    <button type="submit">Place Buy Order</button>
-  </form>
-
-  <h3>Response</h3>
-  <pre id="responseBox"></pre>
+  <div class="login-box">
+    <h2>Connect to Indodax</h2>
+    <form id="loginForm">
+      <input type="text" name="api_key" placeholder="API Key" required />
+      <input type="password" name="api_secret" placeholder="API Secret" required />
+      <button type="submit">Connect</button>
+    </form>
+    <div id="error" class="error-message"></div>
+  </div>
 
   <script>
-    document.getElementById("tradeForm").addEventListener("submit", async function (e) {
+    document.getElementById("loginForm").addEventListener("submit", async function(e) {
       e.preventDefault();
-      const data = Object.fromEntries(new FormData(this).entries());
+      const form = new FormData(this);
+      const api_key = form.get("api_key");
+      const api_secret = form.get("api_secret");
 
-      const res = await fetch("/trade/buy", {
+      const res = await fetch("/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
+        body: JSON.stringify({ api_key, api_secret })
       });
 
       const result = await res.json();
-      document.getElementById("responseBox").textContent = JSON.stringify(result, null, 2);
+      if (result.success) {
+        localStorage.setItem("api_key", api_key);
+        localStorage.setItem("api_secret", api_secret);
+        window.location.href = "/static/dashboard.html";
+      } else {
+        document.getElementById("error").textContent = "Invalid API credentials";
+      }
     });
   </script>
 </body>
