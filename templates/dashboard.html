@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <style>
+        /* Gaya sederhana agar tampilan bersih */
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        h2, h3 {
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            margin-top: 10px;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px;
+            cursor: pointer;
+        }
+        /* Modal styling */
+        #gridModal {
+            display: none;
+            position: fixed;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 20px;
+            border: 2px solid #000;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+        #gridModal form input, #gridModal form select {
+            width: 100%;
+            margin: 5px 0;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Portfolio</h2>
+    <table>
+        <tr><th>Asset</th><th>Balance</th></tr>
+        {% for asset, balance in portfolio.items() %}
+        <tr><td>{{ asset }}</td><td>{{ balance }}</td></tr>
+        {% endfor %}
+    </table>
+
+    <h3>Strategi Grid Trading</h3>
+    <button id="openGridModal">Start Grid Trading</button>
+
+    <!-- Modal -->
+    <div id="gridModal">
+        <form id="gridForm">
+            <h3>Grid Trading Setup</h3>
+
+            <label for="pair">Pair:</label>
+            <select name="pair" id="pair" required>
+                {% for pair in pairs %}
+                    <option value="{{ pair }}">{{ pair|upper }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="low_price">Harga Terendah:</label>
+            <input type="number" name="low_price" step="any" required>
+
+            <label for="high_price">Harga Tertinggi:</label>
+            <input type="number" name="high_price" step="any" required>
+
+            <label for="grid_count">Jumlah Grid:</label>
+            <input type="number" name="grid_count" min="1" required>
+
+            <label for="balance">Alokasi Saldo (IDR):</label>
+            <input type="number" name="balance" step="any" required>
+
+            <button type="submit">Mulai Strategi</button>
+            <button type="button" onclick="closeModal()">Batal</button>
+        </form>
+    </div>
+
+    <h3>Open Positions</h3>
+    <table id="positionsTable">
+        <thead>
+            <tr>
+                <th>Pair</th>
+                <th>Order Type</th>
+                <th>Price</th>
+                <th>Amount</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="positionsBody">
+            <!-- Data posisi akan ditambahkan dengan JavaScript -->
+        </tbody>
+    </table>
+
+    <script>
+        const modal = document.getElementById("gridModal");
+        document.getElementById("openGridModal").onclick = () => modal.style.display = "block";
+        const closeModal = () => modal.style.display = "none";
+
+        document.getElementById("gridForm").onsubmit = async (e) => {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            const payload = Object.fromEntries(form.entries());
+
+            const response = await fetch('/start_grid_trading', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (response.ok) {
+                alert('Strategi berhasil dimulai!');
+                closeModal();
+                loadPositions();  // Reload posisi
+            } else {
+                const err = await response.text();
+                alert('Gagal: ' + err);
+            }
+        };
+
+        async function loadPositions() {
+            const res = await fetch('/positions');
+            const data = await res.json();
+            const tbody = document.getElementById("positionsBody");
+            tbody.innerHTML = '';
+
+            data.forEach(pos => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${pos.pair}</td>
+                    <td>${pos.order_type}</td>
+                    <td>${pos.price}</td>
+                    <td>${pos.amount}</td>
+                    <td>${pos.status}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        window.onload = loadPositions;
+    </script>
+</body>
+</html>
