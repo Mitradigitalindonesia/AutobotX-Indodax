@@ -269,9 +269,6 @@
     };
 
     async function loadPortfolio() {
-      let modalAwal = localStorage.getItem("modal_awal") || 1000000;
-      modalAwal = parseFloat(modalAwal);
-
       const res = await fetch("/portfolio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -287,14 +284,11 @@
         return;
       }
 
-      let totalBalance = 0;
       let labels = [];
       let chartData = [];
 
-      data.portfolio.forEach((asset, index) => {
+      data.portfolio.forEach(asset => {
         const value = parseFloat(asset.value || 0);
-        totalBalance += value;
-
         const card = document.createElement("div");
         card.className = "asset-card";
         card.innerHTML = `
@@ -310,13 +304,12 @@
       });
 
       // Update total balance
-      document.getElementById("total-balance").textContent = "Rp " + totalBalance.toLocaleString("id-ID");
+      document.getElementById("total-balance").textContent = "Rp " + data.total_value.toLocaleString("id-ID");
 
-      // Calculate & display PNL
-      const pnl = totalBalance - modalAwal;
+      // Update PNL
       const pnlElem = document.getElementById("total-pnl");
-      pnlElem.textContent = (pnl >= 0 ? "+" : "") + "Rp " + pnl.toLocaleString("id-ID");
-      pnlElem.style.color = pnl >= 0 ? "#00b894" : "#e17055";
+      pnlElem.textContent = (data.pnl >= 0 ? "+" : "") + "Rp " + data.pnl.toLocaleString("id-ID");
+      pnlElem.style.color = data.pnl >= 0 ? "#00b894" : "#e17055";
 
       // Update chart
       portfolioChart.data.labels = labels;
