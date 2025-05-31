@@ -51,6 +51,7 @@ def get_dashboard(request: Request):
 async def validate(request: ValidateRequest):
     try:
         result = get_balance(request.api_key, request.api_secret)
+        logging.info(f"Indodax validate response: {result}")  # Tambahkan ini
         if result.get("success") == 1:
             return {"success": True}
         return {"success": False, "error": result.get("error", "Gagal autentikasi.")}
