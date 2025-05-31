@@ -18,7 +18,7 @@ def _generate_signature(api_key, api_secret, data):
 
 def get_balance(api_key, api_secret):
     url = "https://indodax.com/tapi"
-    nonce = int(time.time())
+    nonce = int(time.time() * 1000)
     data = {
         "method": "getInfo",
         "nonce": nonce
@@ -30,7 +30,7 @@ def get_balance(api_key, api_secret):
 
 def place_buy_order(pair, amount_idr, api_key, api_secret):
     url = "https://indodax.com/tapi"
-    nonce = int(time.time())
+    nonce = int(time.time() * 1000)
 
     data = {
         "method": "trade",
@@ -47,7 +47,7 @@ def place_buy_order(pair, amount_idr, api_key, api_secret):
 
 def place_grid_order(pair, price, amount, api_key, api_secret):
     url = "https://indodax.com/tapi"
-    nonce = int(time.time())
+    nonce = int(time.time() * 1000)
 
     data = {
         "method": "trade",
@@ -64,7 +64,7 @@ def place_grid_order(pair, price, amount, api_key, api_secret):
 
 def get_open_orders(api_key, api_secret):
     url = "https://indodax.com/tapi"
-    nonce = int(time.time())
+    nonce = int(time.time() * 1000)
 
     data = {
         "method": "openOrders",
