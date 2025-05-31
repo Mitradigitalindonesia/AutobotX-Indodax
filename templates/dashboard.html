@@ -6,91 +6,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
         body {
-            font-family: 'Segoe UI', sans-serif;
-            margin: 0;
+            font-family: Arial, sans-serif;
             padding: 20px;
-            background-color: #0e1a2b;
-            color: #fff;
+            background-color: #f5f5f5;
         }
-
         h2, h3 {
-            border-bottom: 2px solid #00b894;
-            padding-bottom: 5px;
+            color: #333;
         }
-
         table {
             border-collapse: collapse;
             width: 100%;
-            margin-top: 15px;
-            background: #1f2d3d;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #2c3e50;
-        }
-
-        th {
-            background-color: #00b894;
-            color: white;
-        }
-
-        button {
-            background: #00b894;
-            color: white;
-            padding: 10px 20px;
-            border: none;
             margin-top: 10px;
-            border-radius: 5px;
-            cursor: pointer;
+            background: white;
         }
-
-        button:hover {
-            background: #019875;
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
         }
-
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
         #gridModal {
             display: none;
             position: fixed;
-            background: #2f3e4e;
+            background: #fff;
             padding: 20px;
-            border-radius: 10px;
+            border: 2px solid #000;
             top: 10%;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
-            color: white;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 0 10px #000;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
-
-        #gridModal label {
+        button {
+            padding: 8px 16px;
+            margin-top: 10px;
+        }
+        label {
             display: block;
-            margin-bottom: 10px;
+            margin-top: 10px;
         }
-
-        #gridModal input, #gridModal select {
-            width: 100%;
-            padding: 8px;
-            margin-top: 4px;
+        #hideZeroCheckbox {
             margin-bottom: 10px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
         }
     </style>
 </head>
 <body>
     <h2>Portfolio</h2>
+
+    <label>
+        <input type="checkbox" id="hideZeroCheckbox" onchange="toggleZeroAssets()">
+        Sembunyikan aset dengan saldo 0
+    </label>
+
     <table>
         <thead>
             <tr><th>Asset</th><th>Balance</th></tr>
         </thead>
         <tbody id="portfolioBody">
-            <tr><td colspan="2">Loading...</td></tr>
+            {% for asset, balance in portfolio.items() %}
+            <tr data-balance="{{ balance }}">
+                <td>{{ asset }}</td>
+                <td>{{ balance }}</td>
+            </tr>
+            {% endfor %}
         </tbody>
     </table>
 
@@ -101,9 +82,9 @@
         <form id="gridForm">
             <label>Pair:
                 <select name="pair" required>
-                    <option value="btc_idr">BTC_IDR</option>
-                    <option value="eth_idr">ETH_IDR</option>
-                    <option value="bnb_idr">BNB_IDR</option>
+                    {% for pair in pairs %}
+                        <option value="{{ pair }}">{{ pair|upper }}</option>
+                    {% endfor %}
                 </select>
             </label>
             <label>Harga Terendah: <input type="number" step="any" name="low_price" required></label>
@@ -115,7 +96,7 @@
         </form>
     </div>
 
-    <h3>Open Positions</h3>
+    <h3>Open Positions (Live dari Indodax)</h3>
     <table>
         <thead>
             <tr><th>Pair</th><th>Type</th><th>Price</th><th>Amount</th><th>Status</th></tr>
@@ -128,6 +109,15 @@
     <script>
         const api_key = localStorage.getItem("api_key");
         const api_secret = localStorage.getItem("api_secret");
+
+        function toggleZeroAssets() {
+            const hideZero = document.getElementById("hideZeroCheckbox").checked;
+            const rows = document.querySelectorAll("#portfolioBody tr");
+            rows.forEach(row => {
+                const balance = parseFloat(row.dataset.balance);
+                row.style.display = (hideZero && balance <= 0) ? "none" : "";
+            });
+        }
 
         function openGridModal() {
             document.getElementById("gridModal").style.display = "block";
@@ -167,31 +157,6 @@
             loadPositions();
         };
 
-        async function loadPortfolio() {
-            const res = await fetch("/portfolio", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ api_key, api_secret })
-            });
-
-            const data = await res.json();
-            const tbody = document.getElementById("portfolioBody");
-            tbody.innerHTML = "";
-
-            if (!data.success || !data.portfolio) {
-                tbody.innerHTML = "<tr><td colspan='2'>Gagal mengambil data.</td></tr>";
-                return;
-            }
-
-            Object.entries(data.portfolio).forEach(([asset, balance]) => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `<td>${asset}</td><td>${balance}</td>`;
-                tbody.appendChild(tr);
-            });
-        }
-
         async function loadPositions() {
             const res = await fetch("/positions", {
                 method: "POST",
@@ -227,8 +192,8 @@
         }
 
         window.onload = () => {
-            loadPortfolio();
             loadPositions();
+            toggleZeroAssets();
         };
     </script>
 </body>
