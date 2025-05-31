@@ -85,12 +85,19 @@
 </head>
 <body>
     <h2>Portfolio</h2>
+    <h3>Total Nilai Portofolio: Rp <span id="total-value">Loading...</span></h3>
+
     <table>
         <thead>
-            <tr><th>Asset</th><th>Balance</th></tr>
+            <tr>
+                <th>Asset</th>
+                <th>Jumlah</th>
+                <th>Harga Sekarang</th>
+                <th>Nilai (Rp)</th>
+            </tr>
         </thead>
         <tbody id="portfolioBody">
-            <tr><td colspan="2">Loading...</td></tr>
+            <tr><td colspan="4">Loading...</td></tr>
         </tbody>
     </table>
 
@@ -178,16 +185,30 @@
 
             const data = await res.json();
             const tbody = document.getElementById("portfolioBody");
+            const totalValueEl = document.getElementById("total-value");
             tbody.innerHTML = "";
 
-            if (!data.success || !data.portfolio) {
-                tbody.innerHTML = "<tr><td colspan='2'>Gagal mengambil data.</td></tr>";
+            if (!data.success || !Array.isArray(data.portfolio)) {
+                tbody.innerHTML = "<tr><td colspan='4'>Gagal mengambil data.</td></tr>";
+                totalValueEl.innerText = "Error";
                 return;
             }
 
-            Object.entries(data.portfolio).forEach(([asset, balance]) => {
+            totalValueEl.innerText = data.total_value.toLocaleString("id-ID", { minimumFractionDigits: 0 });
+
+            if (data.portfolio.length === 0) {
+                tbody.innerHTML = "<tr><td colspan='4'>Tidak ada aset yang dimiliki.</td></tr>";
+                return;
+            }
+
+            data.portfolio.forEach(asset => {
                 const tr = document.createElement("tr");
-                tr.innerHTML = `<td>${asset}</td><td>${balance}</td>`;
+                tr.innerHTML = `
+                    <td>${asset.asset}</td>
+                    <td>${asset.amount}</td>
+                    <td>Rp ${asset.price.toLocaleString("id-ID")}</td>
+                    <td>Rp ${asset.value.toLocaleString("id-ID")}</td>
+                `;
                 tbody.appendChild(tr);
             });
         }
