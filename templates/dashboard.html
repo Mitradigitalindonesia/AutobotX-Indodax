@@ -18,24 +18,34 @@
             padding-bottom: 5px;
         }
 
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin-top: 15px;
-            background: #1f2d3d;
+        .card-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .asset-card {
+            background-color: #1f2d3d;
             border-radius: 8px;
-            overflow: hidden;
+            padding: 16px;
+            width: 220px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            flex: 1 1 200px;
+            transition: transform 0.2s ease;
         }
 
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #2c3e50;
+        .asset-card:hover {
+            transform: translateY(-4px);
         }
 
-        th {
-            background-color: #00b894;
-            color: white;
+        .asset-card h4 {
+            margin: 0 0 10px 0;
+            color: #00b894;
+        }
+
+        .asset-card p {
+            margin: 4px 0;
         }
 
         button {
@@ -81,25 +91,35 @@
             border-radius: 4px;
             border: 1px solid #ccc;
         }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 15px;
+            background: #1f2d3d;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #2c3e50;
+        }
+
+        th {
+            background-color: #00b894;
+            color: white;
+        }
     </style>
 </head>
 <body>
     <h2>Portfolio</h2>
     <h3>Total Nilai Portofolio: Rp <span id="total-value">Loading...</span></h3>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Asset</th>
-                <th>Jumlah</th>
-                <th>Harga Sekarang</th>
-                <th>Nilai (Rp)</th>
-            </tr>
-        </thead>
-        <tbody id="portfolioBody">
-            <tr><td colspan="4">Loading...</td></tr>
-        </tbody>
-    </table>
+    <div id="portfolioContainer" class="card-container">
+        <div>Loading...</div>
+    </div>
 
     <h3>Strategi Grid Trading</h3>
     <button onclick="openGridModal()">Start Grid Trading</button>
@@ -184,12 +204,12 @@
             });
 
             const data = await res.json();
-            const tbody = document.getElementById("portfolioBody");
+            const container = document.getElementById("portfolioContainer");
             const totalValueEl = document.getElementById("total-value");
-            tbody.innerHTML = "";
+            container.innerHTML = "";
 
             if (!data.success || !Array.isArray(data.portfolio)) {
-                tbody.innerHTML = "<tr><td colspan='4'>Gagal mengambil data.</td></tr>";
+                container.innerHTML = "<div>Gagal mengambil data.</div>";
                 totalValueEl.innerText = "Error";
                 return;
             }
@@ -197,19 +217,20 @@
             totalValueEl.innerText = data.total_value.toLocaleString("id-ID", { minimumFractionDigits: 0 });
 
             if (data.portfolio.length === 0) {
-                tbody.innerHTML = "<tr><td colspan='4'>Tidak ada aset yang dimiliki.</td></tr>";
+                container.innerHTML = "<div>Tidak ada aset yang dimiliki.</div>";
                 return;
             }
 
             data.portfolio.forEach(asset => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td>${asset.asset}</td>
-                    <td>${asset.amount}</td>
-                    <td>Rp ${asset.price.toLocaleString("id-ID")}</td>
-                    <td>Rp ${asset.value.toLocaleString("id-ID")}</td>
+                const card = document.createElement("div");
+                card.className = "asset-card";
+                card.innerHTML = `
+                    <h4>${asset.asset}</h4>
+                    <p>Jumlah: ${asset.amount}</p>
+                    <p>Harga: Rp ${asset.price.toLocaleString("id-ID")}</p>
+                    <p>Nilai: <strong>Rp ${asset.value.toLocaleString("id-ID")}</strong></p>
                 `;
-                tbody.appendChild(tr);
+                container.appendChild(card);
             });
         }
 
