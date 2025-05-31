@@ -11,7 +11,8 @@ def _generate_signature(api_key, api_secret, data):
     sign = hmac.new(api_secret.encode(), post_data.encode(), hashlib.sha512).hexdigest()
     headers = {
         "Key": api_key,
-        "Sign": sign
+        "Sign": sign,
+        "Content-Type": "application/x-www-form-urlencoded"  # ✅ Ini penting
     }
     return headers, post_data
 
