@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-import os, logging
+import os, logging, requests
 from indodax_api import place_buy_order, get_balance, place_grid_order, get_open_orders
 
 app = FastAPI()
@@ -45,7 +45,6 @@ def health_check():
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def get_dashboard(request: Request):
-    # Dummy data; frontend akan ambil balance via /portfolio
     portfolio = {"idr": 0, "btc": 0}
     pairs = ["btc_idr", "eth_idr", "bnb_idr"]
     return templates.TemplateResponse("dashboard.html", {
@@ -71,7 +70,40 @@ def get_portfolio(data: PortfolioRequest):
     try:
         info = get_balance(data.api_key, data.api_secret)
         balances = info.get("return", {}).get("balance", {})
-        return {"success": True, "portfolio": balances}
+
+        # Ambil harga pasar saat ini
+        prices_response = requests.get("https://indodax.com/api/summaries")
+        prices_data = prices_response.json().get("tickers", {})
+
+        portfolio = []
+        total_value = 0.0
+
+        for asset, amount_str in balances.items():
+            amount = float(amount_str)
+            if amount <= 0:
+                continue
+
+            market_key = f"{asset.lower()}_idr"
+            price = float(prices_data.get(market_key, {}).get("last", 0))
+
+            if price == 0:
+                continue  # Lewati aset yang tidak ada pasangan IDR-nya
+
+            value = amount * price
+            portfolio.append({
+                "asset": asset.upper(),
+                "amount": amount,
+                "price": price,
+                "value": value
+            })
+            total_value += value
+
+        return {
+            "success": True,
+            "portfolio": portfolio,
+            "total_value": total_value
+        }
+
     except Exception as e:
         logging.exception("Gagal ambil portfolio")
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
