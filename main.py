@@ -25,6 +25,10 @@ class PositionsRequest(BaseModel):
     api_key: str
     api_secret: str
 
+class ValidateRequest(BaseModel):
+    api_key: str
+    api_secret: str
+
 @app.get("/", response_class=FileResponse)
 def serve_index():
     return FileResponse(os.path.join("static", "index.html"))
@@ -42,6 +46,17 @@ def get_dashboard(request: Request):
         "portfolio": portfolio,
         "pairs": pairs
     })
+
+@app.post("/validate")
+async def validate(request: ValidateRequest):
+    try:
+        result = get_balance(request.api_key, request.api_secret)
+        if result.get("success") == 1:
+            return {"success": True}
+        return {"success": False, "error": result.get("error", "Gagal autentikasi.")}
+    except Exception as e:
+        logging.exception("Validasi gagal")
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 @app.post("/start_grid_trading")
 async def start_grid_trading(request: Request):
