@@ -107,7 +107,7 @@ def get_portfolio_valuation(api_key, api_secret):
             value = amount * price
 
             result.append({
-                "asset": asset,
+                "asset": asset.upper(),
                 "balance": amount,
                 "price": price,
                 "value": value
@@ -118,9 +118,9 @@ def get_portfolio_valuation(api_key, api_secret):
     # Tambahkan IDR sebagai aset
     idr_balance = float(balances.get("idr", 0))
     result.append({
-        "asset": "idr",
+        "asset": "IDR",
         "balance": idr_balance,
-        "price": 1,
+        "price": 1.0,
         "value": idr_balance
     })
 
