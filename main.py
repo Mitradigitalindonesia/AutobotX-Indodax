@@ -1,16 +1,20 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import os, logging
 
+from sqlalchemy.orm import Session
+from database import SessionLocal
+from models import UserPortfolio
+
 from indodax_api import (
     place_buy_order,
     get_balance,
     place_grid_order,
     get_open_orders,
-    get_portfolio_valuation  # ✅ Import baru
+    get_portfolio_valuation
 )
 
 app = FastAPI()
@@ -18,6 +22,14 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 logging.basicConfig(level=logging.INFO, force=True)
+
+# --------------------- Database Dependency ---------------------
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # --------------------- Models ---------------------
 class GridTradingRequest(BaseModel):
@@ -71,12 +83,37 @@ async def validate(request: ValidateRequest):
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 @app.post("/portfolio")
-def get_portfolio(data: PortfolioRequest):
+def get_portfolio(data: PortfolioRequest, db: Session = Depends(get_db)):
     try:
         result = get_portfolio_valuation(data.api_key, data.api_secret)
         if not result.get("success"):
             return JSONResponse(status_code=400, content=result)
-        return result
+
+        user_id = data.api_key  # Kita gunakan API key sebagai ID unik
+
+        # Ambil total nilai portofolio sekarang
+        total_value = result.get("total_value", 0.0)
+
+        # Cari apakah user sudah tersimpan
+        user_portfolio = db.query(UserPortfolio).filter_by(user_id=user_id).first()
+
+        if not user_portfolio:
+            # Simpan nilai awal pertama kali
+            user_portfolio = UserPortfolio(user_id=user_id, initial_value=total_value)
+            db.add(user_portfolio)
+            db.commit()
+            db.refresh(user_portfolio)
+
+        pnl = total_value - user_portfolio.initial_value
+
+        return {
+            "success": True,
+            "portfolio": result.get("portfolio", []),
+            "total_value": total_value,
+            "initial_value": user_portfolio.initial_value,
+            "pnl": pnl
+        }
+
     except Exception as e:
         logging.exception("Gagal ambil portfolio")
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
