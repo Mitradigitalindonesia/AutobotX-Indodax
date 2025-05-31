@@ -100,3 +100,16 @@ def get_positions(request: PositionsRequest):
     except Exception as e:
         logging.exception("Failed to get positions")
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+        class PortfolioRequest(BaseModel):
+    api_key: str
+    api_secret: str
+
+@app.post("/portfolio")
+def get_portfolio(data: PortfolioRequest):
+    try:
+        info = get_balance(data.api_key, data.api_secret)
+        balances = info.get("return", {}).get("balance", {})
+        return {"success": True, "portfolio": balances}
+    except Exception as e:
+        logging.exception("Gagal ambil portfolio")
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
