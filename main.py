@@ -3,8 +3,15 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-import os, logging, requests
-from indodax_api import place_buy_order, get_balance, place_grid_order, get_open_orders
+import os, logging
+
+from indodax_api import (
+    place_buy_order,
+    get_balance,
+    place_grid_order,
+    get_open_orders,
+    get_portfolio_valuation  # ✅ Import baru
+)
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -45,12 +52,10 @@ def health_check():
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def get_dashboard(request: Request):
-    portfolio = {"idr": 0, "btc": 0}
-    pairs = ["btc_idr", "eth_idr", "bnb_idr"]
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
-        "portfolio": portfolio,
-        "pairs": pairs
+        "portfolio": [],
+        "pairs": ["btc_idr", "eth_idr", "bnb_idr"]
     })
 
 @app.post("/validate")
@@ -68,42 +73,10 @@ async def validate(request: ValidateRequest):
 @app.post("/portfolio")
 def get_portfolio(data: PortfolioRequest):
     try:
-        info = get_balance(data.api_key, data.api_secret)
-        balances = info.get("return", {}).get("balance", {})
-
-        # Ambil harga pasar saat ini
-        prices_response = requests.get("https://indodax.com/api/summaries")
-        prices_data = prices_response.json().get("tickers", {})
-
-        portfolio = []
-        total_value = 0.0
-
-        for asset, amount_str in balances.items():
-            amount = float(amount_str)
-            if amount <= 0:
-                continue
-
-            market_key = f"{asset.lower()}_idr"
-            price = float(prices_data.get(market_key, {}).get("last", 0))
-
-            if price == 0:
-                continue  # Lewati aset yang tidak ada pasangan IDR-nya
-
-            value = amount * price
-            portfolio.append({
-                "asset": asset.upper(),
-                "amount": amount,
-                "price": price,
-                "value": value
-            })
-            total_value += value
-
-        return {
-            "success": True,
-            "portfolio": portfolio,
-            "total_value": total_value
-        }
-
+        result = get_portfolio_valuation(data.api_key, data.api_secret)
+        if not result.get("success"):
+            return JSONResponse(status_code=400, content=result)
+        return result
     except Exception as e:
         logging.exception("Gagal ambil portfolio")
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
